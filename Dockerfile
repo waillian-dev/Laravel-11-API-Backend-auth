@@ -1,27 +1,30 @@
-FROM php:8.2-fpm
+FROM php:8.2-apache
 
-# System dependencies များ သွင်းခြင်း
 RUN apt-get update && apt-get install -y \
-    libpng-dev libonig-dev libxml2-dev zip unzip git curl nginx
+    libpng-dev libonig-dev libxml2-dev zip unzip git curl libzip-dev
 
-# PHP extensions သွင်းခြင်း
-RUN docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
 
-WORKDIR /var/www
+RUN a2enmod rewrite
+ENV APACHE_DOCUMENT_ROOT /var/www/html/public
+RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
+
+WORKDIR /var/www/html
 COPY . .
 
-# Composer dependencies သွင်းခြင်း
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
-RUN composer install --no-dev --optimize-autoloader
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Permissions ပေးခြင်း
-RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+RUN COMPOSER_MEMORY_LIMIT=-1 composer install \
+    --no-interaction \
+    --no-plugins \
+    --no-scripts \
+    --no-dev \
+    --prefer-dist \
+    --ignore-platform-reqs \
+    --optimize-autoloader
 
-# Port 80 ကို သုံးမည်
-EXPOSE 80
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Start script (Migration run ဖို့နဲ့ Web server တက်ဖို့)
-CMD php artisan migrate --force && php artisan config:cache && php artisan serve --host=0.0.0.0 --port=80
+RUN sed -i 's/80/${PORT}/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
 
-# CA Certificates သွင်းပေးခြင်း
-RUN apt-get update && apt-get install -y ca-certificates && update-ca-certificates
+CMD ["apache2-foreground"]
