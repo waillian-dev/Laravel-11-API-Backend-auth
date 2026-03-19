@@ -28,3 +28,5 @@ RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cac
 RUN sed -i 's/80/${PORT}/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
 
 CMD ["apache2-foreground"]
+
+CMD php artisan migrate --force && apache2-foreground
