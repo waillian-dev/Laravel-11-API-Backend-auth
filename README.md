@@ -130,5 +130,3 @@ git remote add origin <your-repo-link>
 git push -u origin main
 
 ```
-
-အဆင်ပြေပါစေ! နောက်ထပ် Features တွေ (ဥပမာ- Post တင်တာ၊ Notification ပို့တာ) လိုအပ်ရင် အချိန်မရွေး ပြန်မေးနိုင်ပါတယ်။

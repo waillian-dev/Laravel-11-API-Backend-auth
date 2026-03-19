@@ -26,5 +26,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
+    Route::post('/user/update', [AuthController::class, 'updateProfile']);
+    // Notification Routes
+    Route::get('/notifications', [AuthController::class, 'getNotifications']);
+    Route::post('/notifications/{id}/read', [AuthController::class, 'markAsRead']);
+    Route::post('/notifications/read-all', [AuthController::class, 'markAllAsRead']);
 });
 

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-
+use Illuminate\Database\Eloquent\Casts\Attribute;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
@@ -45,5 +45,23 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    protected function profilePhoto(): \Illuminate\Database\Eloquent\Casts\Attribute
+    {
+        return \Illuminate\Database\Eloquent\Casts\Attribute::make(
+            get: function ($value) {
+                if (!$value) return null;
+
+                // အကယ်၍ $value က URL အပြည့်အစုံ ဖြစ်နေရင် (အရင်က မှားသိမ်းထားတာမျိုး) 
+                // ထပ်မပေါင်းအောင် စစ်ပေးမယ်
+                if (filter_var($value, FILTER_VALIDATE_URL)) {
+                    return $value;
+                }
+
+                $baseUrl = rtrim(config('filesystems.disks.r2.url'), '/');
+                return $baseUrl . '/' . ltrim($value, '/');
+            }
+        );
     }
 }

@@ -16,6 +16,9 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use App\Mail\OtpMail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Notifications\DatabaseNotification;
+use App\Notifications\GeneralNotification;
+
 
 class AuthController extends Controller
 {
@@ -40,15 +43,19 @@ class AuthController extends Controller
             // ၃။ Cloudflare R2 သို့ Image Upload တင်ခြင်း
             $imageUrl = null;
             if ($request->hasFile('profile_image')) {
-                /** @var \Illuminate\Filesystem\FilesystemAdapter $storage */
-                $storage = Storage::disk('r2');
+                // ၁။ ပုံကို R2 ပေါ်တင်ပြီး Path ကိုယူမယ် (e.g., profiles/MrdzD0o...jpg)
                 $path = $request->file('profile_image')->store('profiles', 'r2');
-                $imageUrl = $storage->url($path);
+
+                if ($path) {
+                    // ၂။ .env ထဲက URL ကိုယူပြီး Path နဲ့ ကိုယ်တိုင်ဆက်မယ်
+                    $baseUrl = rtrim(config('filesystems.disks.r2.url'), '/');
+                    $imageUrl = $baseUrl . '/' . $path; // အခုဆိုရင် URL အပြည့်အစုံ ရပါပြီ
+                }
             }
 
             // ၄။ OTP နှင့် သက်တမ်းသတ်မှတ်ခြင်း
             $otp = (string) rand(111111, 999999);
-            $otpExpiredAt = Carbon::now()->addMinutes(10);
+            $otpExpiredAt = Carbon::now()->addMinutes(1);
 
             // ၅။ User Database ထဲတွင် သိမ်းဆည်းခြင်း
             $user = User::create([
@@ -75,6 +82,15 @@ class AuthController extends Controller
 
             // ၇။ Sanctum Token ထုတ်ပေးခြင်း
             $token = $user->createToken('auth_token')->plainTextToken;
+
+            $details = [
+                'subject' => 'Welcome to Our App',
+                'body' => 'Account Registration is successful',
+                'actionText' => 'View Profile',
+                'actionURL' => url('/profile')
+            ];
+
+            $user->notify(new GeneralNotification($details));
 
             return response()->json([
                 'status'  => 'success',
@@ -121,9 +137,7 @@ class AuthController extends Controller
             'user' => $user
         ]);
     }
-    /**
-     * ၁။ Email & Password Login
-     */
+
     public function login(Request $request)
     {
         $request->validate([
@@ -151,10 +165,6 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * ၂။ Google Social Login (For Expo/Mobile)
-     * Expo ဘက်ကပို့ပေးမယ့် google_token ကို လက်ခံစစ်ဆေးသည်
-     */
     public function loginWithGoogle(Request $request)
     {
         $request->validate([
@@ -324,9 +334,64 @@ class AuthController extends Controller
         return $username;
     }
 
-    /**
-     * ၃။ Logout
-     */
+    public function updateProfile(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        // Validation
+        $validated = $request->validate([
+            'fullname'      => 'sometimes|string|max:255',
+            'gender'        => 'nullable|in:male,female,other',
+            'birthdate'     => 'nullable|date',
+            'nrc'           => 'nullable|string',
+            'profile_photo' => 'nullable|image|mimes:jpg,jpeg,png|max:2048', // 2MB max
+        ]);
+
+        try {
+            if ($request->hasFile('profile_photo')) {
+                $storage = Storage::disk('r2');
+
+                // Delete old photo if exists
+                if (!empty($user->profile_photo)) {
+                    $oldPath = ltrim(parse_url($user->profile_photo, PHP_URL_PATH), '/');
+                    if ($storage->exists($oldPath)) {
+                        $storage->delete($oldPath);
+                    }
+                }
+
+                // Upload new photo
+                $path = $request->file('profile_photo')->store('profile_photos', 'r2');
+                $validated['profile_photo'] = rtrim(env('R2_URL'), '/') . '/' . $path;
+
+            }
+
+            $user->update($validated);
+
+            $details = [
+                'subject' => 'Welcome to Our App',
+                'body' => 'Profile is updated successfully',
+                'actionText' => 'View Profile',
+                'actionURL' => url('/profile')
+            ];
+
+            $user->notify(new GeneralNotification($details));
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Profile updated successfully.',
+                'data'    => $user
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("Profile Update Error: " . $e->getMessage());
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'An error occurred while updating profile - ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     public function logout(Request $request)
     {
         $request->user()->tokens()->delete();
@@ -334,5 +399,42 @@ class AuthController extends Controller
         return response()->json([
             'message' => 'Logout successful'
         ]);
+    }
+
+    public function getNotifications(Request $request)
+    {
+        $user = $request->user();
+
+        // စာရင်းအသစ်ကို အပေါ်ကနေ ပြချင်လို့ latest() သုံးထားပါတယ်
+        $notifications = $user->notifications()->paginate(20);
+
+        return response()->json([
+            'status' => 'success',
+            'unread_count' => $user->unreadNotifications->count(), // မဖတ်ရသေးတဲ့ အရေအတွက်
+            'notifications' => $notifications
+        ]);
+    }
+
+    public function markAsRead(Request $request, $id)
+    {
+        /** @var \App\Models\User $user */
+        $user = $request->user();
+
+        // ပေးလိုက်တဲ့ ID နဲ့ Notification ကို ရှာမယ်
+        $notification = $user->notifications()->where('id', $id)->first();
+
+        if ($notification) {
+            $notification->markAsRead();
+            return response()->json(['message' => 'စာဖတ်ပြီးကြောင်း မှတ်သားပြီးပါပြီ။']);
+        }
+
+        return response()->json(['message' => 'Notification ရှာမတွေ့ပါ။'], 404);
+    }
+
+    public function markAllAsRead(Request $request)
+    {
+        $request->user()->unreadNotifications->markAsRead();
+        
+        return response()->json(['message' => 'အားလုံးကို ဖတ်ပြီးကြောင်း မှတ်သားပြီးပါပြီ။']);
     }
 }
