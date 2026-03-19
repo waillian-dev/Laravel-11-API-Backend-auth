@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f58393b054dea87b0c1aaebb728a43f8",
+    "content-hash": "9efb1ee29c416d6a5365eae9f8c0efa3",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -285,6 +285,60 @@
                 }
             ],
             "time": "2024-02-09T16:56:22+00:00"
+        },
+        {
+            "name": "colopl/laravel-tidb",
+            "version": "v5.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/colopl/laravel-tidb.git",
+                "reference": "fffa1bb946f4241cb5d3488d286053176bdc7a8f"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/colopl/laravel-tidb/zipball/fffa1bb946f4241cb5d3488d286053176bdc7a8f",
+                "reference": "fffa1bb946f4241cb5d3488d286053176bdc7a8f",
+                "shasum": ""
+            },
+            "require": {
+                "ext-json": "*",
+                "ext-pdo": "*",
+                "laravel/framework": "~12",
+                "php": ">=8.2"
+            },
+            "require-dev": {
+                "orchestra/testbench": "~10",
+                "phpunit/phpunit": "~11"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Colopl\\TiDB\\TiDBServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Colopl\\TiDB\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "Apache-2.0"
+            ],
+            "authors": [
+                {
+                    "name": "Takayasu Oyama",
+                    "email": "t-oyama@colopl.co.jp"
+                }
+            ],
+            "description": "Laravel database driver for PingCAP TiDB",
+            "support": {
+                "issues": "https://github.com/colopl/laravel-tidb/issues",
+                "source": "https://github.com/colopl/laravel-tidb/tree/v5.0.0"
+            },
+            "time": "2025-05-02T07:17:05+00:00"
         },
         {
             "name": "dflydev/dot-access-data",

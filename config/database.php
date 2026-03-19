@@ -114,6 +114,19 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
+        'tidb' => [
+            'driver' => 'tidb', // colopl driver ကို သုံးထားခြင်း
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '4000'), // TiDB default port က 4000 ပါ
+            'database' => env('DB_DATABASE', 'forge'),
+            'username' => env('DB_USERNAME', 'root'),
+            'password' => env('DB_PASSWORD', ''),
+            'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'options' => [
+                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ],
+        ],
+
     ],
 
     /*

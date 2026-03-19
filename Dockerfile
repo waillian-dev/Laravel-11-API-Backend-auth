@@ -1,31 +1,27 @@
-FROM php:8.2-apache
+FROM php:8.2-fpm
 
 # System dependencies များ သွင်းခြင်း
 RUN apt-get update && apt-get install -y \
-    libpng-dev libonig-dev libxml2-dev zip unzip git curl libzip-dev
+    libpng-dev libonig-dev libxml2-dev zip unzip git curl nginx
 
-# PHP Extensions (MySQL/TiDB အတွက် pdo_mysql ပါရပါမယ်)
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
+# PHP extensions သွင်းခြင်း
+RUN docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd
 
-# Apache rewrite engine ကို ဖွင့်ခြင်း
-RUN a2enmod rewrite
-
-# Apache root ကို public folder သို့ ညွှန်ခြင်း
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
-
-WORKDIR /var/www/html
+WORKDIR /var/www
 COPY . .
 
-# Composer သွင်းပြီး dependencies များ သွင်းခြင်း
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+# Composer dependencies သွင်းခြင်း
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 RUN composer install --no-dev --optimize-autoloader
 
 # Permissions ပေးခြင်း
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
-# Render ၏ Dynamic Port ကို သုံးရန် ပြင်ဆင်ခြင်း
-RUN sed -i 's/80/${PORT}/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
+# Port 80 ကို သုံးမည်
+EXPOSE 80
 
-CMD ["apache2-foreground"]
+# Start script (Migration run ဖို့နဲ့ Web server တက်ဖို့)
+CMD php artisan migrate --force && php artisan config:cache && php artisan serve --host=0.0.0.0 --port=80
+
+# CA Certificates သွင်းပေးခြင်း
+RUN apt-get update && apt-get install -y ca-certificates && update-ca-certificates
